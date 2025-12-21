@@ -1,3 +1,5 @@
+use fiso::run;
+
 fn main() {
-    println!("Hello, world!");
+    run();
 }

@@ -1,10 +1,32 @@
 pub mod cli;
 
 use std::{
-    fs::read_dir,
+    fs::{FileTimes, read_dir},
     io::{Error, Result},
+    os::unix::fs::MetadataExt,
     path::Path,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FileType {
+    Video,
+    Audio,
+    Text,
+    RichText,
+    Spreadsheet,
+    Image,
+    Compressed,
+    Executable,
+    Code,
+    Other,
+}
+
+#[derive(Debug, Clone)]
+pub struct FileMetadata {
+    pub name: String,
+    pub size: u64,
+    pub file_type: FileType,
+}
 
 pub fn run() {
     let command_line = cli::Cli::parse();
@@ -15,9 +37,17 @@ pub fn run() {
             recursive,
         } => {
             let path = Path::new(&directory);
+            let mut files_collector: Vec<FileMetadata> = Vec::new();
 
             if recursive {
-                walk_dir_recursively(path).unwrap();
+                walk_dir_recursively(path, &mut files_collector).unwrap();
+
+                for file in files_collector.iter() {
+                    println!(
+                        "{}, Size: {}, Type: {:?}",
+                        file.name, file.size, file.file_type
+                    );
+                }
             } else {
                 walk_dir_flatly(path).unwrap();
             }
@@ -28,11 +58,11 @@ pub fn run() {
     }
 }
 
-pub fn walk_dir_recursively(path: &Path) -> Result<()> {
+pub fn walk_dir_recursively(path: &Path, files_collector: &mut Vec<FileMetadata>) -> Result<()> {
     if !path.is_dir() {
         return Err(Error::new(
             std::io::ErrorKind::NotFound,
-            "Something went wrong!",
+            format!("Directory not found: {}", path.display()),
         ));
     }
 
@@ -41,10 +71,25 @@ pub fn walk_dir_recursively(path: &Path) -> Result<()> {
         let entry_path = entry.path();
 
         if entry_path.is_dir() {
-            walk_dir_recursively(&entry_path)?;
-        } else {
-            println!("{}", entry.file_name().to_string_lossy());
+            walk_dir_recursively(&entry_path, files_collector)?;
+            continue;
         }
+
+        let name = entry
+            .file_name()
+            .into_string()
+            .unwrap_or_else(|_| "Unknown".to_string());
+
+        let size = match entry.metadata() {
+            Ok(meta) => meta.size(),
+            Err(_) => 0,
+        };
+
+        files_collector.push(FileMetadata {
+            name,
+            size,
+            file_type: FileType::Other,
+        });
     }
 
     Ok(())

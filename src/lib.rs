@@ -1,11 +1,14 @@
 pub mod cli;
+pub mod scan;
 
 use std::{
-    fs::{FileTimes, read_dir},
+    fs::read_dir,
     io::{Error, Result},
     os::unix::fs::MetadataExt,
     path::Path,
 };
+
+use scan::scan;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FileType {
@@ -37,20 +40,7 @@ pub fn run() {
             recursive,
         } => {
             let path = Path::new(&directory);
-            let mut files_collector: Vec<FileMetadata> = Vec::new();
-
-            if recursive {
-                walk_dir_recursively(path, &mut files_collector).unwrap();
-
-                for file in files_collector.iter() {
-                    println!(
-                        "{}, Size: {}, Type: {:?}",
-                        file.name, file.size, file.file_type
-                    );
-                }
-            } else {
-                walk_dir_flatly(path).unwrap();
-            }
+            scan(path, recursive);
         }
         cli::Commands::Sort { directory, rules } => {
             println!("Sorting directory {directory}\nWith rules from {rules}");

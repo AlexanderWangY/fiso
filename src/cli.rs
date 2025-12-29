@@ -20,6 +20,9 @@ pub enum Commands {
 
         #[arg(short, long, default_value_t = false)]
         recursive: bool,
+
+        #[arg(short, long, default_value_t = 3)]
+        ext_display_limit: u64,
     },
     Sort {
         directory: String,
